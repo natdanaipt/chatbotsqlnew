@@ -312,6 +312,17 @@ def _special_topics(text):
         return topics("8.3 ")
     if re.search(r"\blike\b", text) and re.search(r"ค้น|ข้อความ|เงื่อนไข|ใช้", text):
         return topics("9.6 ")
+    # ถ้ารหัสนักศึกษา/รหัสประจำตัวในตารางหนึ่งถูกใช้อ้างอิงไปยังอีกตาราง
+    # คำถามกำลังถามถึง Foreign Key แม้ไม่ได้ใช้ศัพท์ "คีย์นอก"
+    if re.search(r"รหัสนักศึกษา|รหัสผู้เรียน|student\s*id", text) \
+            and re.search(r"เชื่อม|อ้างอิง|สัมพันธ์", text) \
+            and re.search(r"อีกตาราง|ตารางหนึ่ง|ตารางอื่น|คีย์นั้น|เรียกว่าอะไร", text):
+        return topics("4.5 ประเภทของคีย์ · 4.")
+    # ตัวอย่างการกรองเงินเดือนเป็นการเลือกแถวด้วยเงื่อนไข WHERE
+    if re.search(r"เงินเดือน|salary", text) \
+            and re.search(r"แสดงเฉพาะ|เลือกเฉพาะ|กรอง|ค้นหา|ต้องการแสดง", text) \
+            and re.search(r"มากกว่า|น้อยกว่า|สูงกว่า|ต่ำกว่า|เท่ากับ|เงื่อนไข", text):
+        return topics("9.6 ")
     if re.search(r"แนวโน้ม.{0,30}(?:เทคโนโลยี|ฐานข้อมูล)|เทคโนโลยี.{0,30}ฐานข้อมูล", text):
         return topics("บทที่ 11 ")
     if re.search(r"ภัยคุกคาม|threat", text):
@@ -1130,6 +1141,15 @@ def _plan(query):
     # แทนย่อหน้าสรุปที่กล่าวถึงฐานข้อมูลภายหลัง
     if special and len(special) == 1 and special[0]["topic"].startswith("2.2 ") \
             and asks_meaning(query):
+        return [(special[0], [0])], True
+    # คำถามภาษาธรรมดาที่ถามถึงคีย์เชื่อมตาราง: ย่อหน้าแรกของหัวข้อคีย์นอกนิยามตรง
+    if special and len(special) == 1 \
+            and special[0]["topic"].startswith("4.5 ประเภทของคีย์ · 4.") \
+            and re.search(r"รหัสนักศึกษา|รหัสผู้เรียน|student\s*id", query, re.I):
+        return [(special[0], [0])], True
+    # คำถามเลือกแถวจากเงื่อนไขเงินเดือน: แสดงคำอธิบาย WHERE และหยุดก่อนตัวอย่างสินค้าอื่น
+    if special and len(special) == 1 and special[0]["topic"].startswith("9.6 ") \
+            and re.search(r"เงินเดือน|salary", query, re.I):
         return [(special[0], [0])], True
     # เปรียบเทียบ Entity กับ Attribute: ใช้นิยามตรงของแต่ละศัพท์ ไม่ใช้ย่อหน้าตัวอย่าง
     # ที่เอ่ยถึงทั้งสองคำแต่ไม่ได้อธิบายความแตกต่าง

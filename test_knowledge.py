@@ -97,6 +97,23 @@ class DatasetTests(unittest.TestCase):
                 self.assertIn('Data Control Language: DCL', answer)
                 self.assertNotIn('4.5 ประเภทของคีย์', answer)
 
+    def test_natural_paraphrases_for_foreign_key_and_where(self):
+        cases = [
+            ('ถ้ารหัสนักศึกษาในตารางหนึ่งถูกใช้เชื่อมกับอีกตาราง คีย์นั้นเรียกว่าอะไร',
+             '4.5 ประเภทของคีย์ · 4.', 'คีย์นอก หมายถึง'),
+            ('ถ้าต้องการแสดงเฉพาะพนักงานที่เงินเดือนมากกว่า 20,000 ควรใช้ส่วนใดของคำสั่ง SQL',
+             '9.6 ', 'คำสั่ง WHERE'),
+        ]
+        for query, expected_topic, expected_text in cases:
+            with self.subTest(query=query):
+                found = kb.search(query, 3)
+                self.assertEqual(len(found), 1, [e['topic'] for e in found])
+                self.assertTrue(found[0]['topic'].startswith(expected_topic))
+                answer = kb.answer_from_dataset([{'role': 'user', 'content': query}])
+                self.assertNotEqual(answer, kb.NO_DATA)
+                self.assertIn(expected_text, answer)
+                self.assertIn('แหล่งข้อมูล:', answer)
+
     def test_unrelated(self):
         # รวมเรื่อง SQL ที่ตำราไม่ได้อธิบาย แม้บางคำจะโผล่ในเนื้อหา (เช่น Transaction ในตาราง)
         for query in ['ราคาทองวันนี้', 'weather today', 'เขียนเพลงรัก', 'quantum computer คืออะไร',
