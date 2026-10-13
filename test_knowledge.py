@@ -114,6 +114,13 @@ class DatasetTests(unittest.TestCase):
                 self.assertIn(expected_text, answer)
                 self.assertIn('แหล่งข้อมูล:', answer)
 
+    def test_er_diagram_definition_returns_only_definition(self):
+        answer = kb.answer_from_dataset([{'role': 'user', 'content': 'ER Diagram คืออะไร'}])
+        self.assertIn('แผนภาพเชิงแนวคิดในการออกแบบเอ็นทิตี้', answer)
+        self.assertIn('แหล่งข้อมูล:', answer)
+        self.assertNotIn('เกิดขึ้นในปี', answer)
+        self.assertNotIn('Crow’s Foot', answer)
+
     def test_unrelated(self):
         # รวมเรื่อง SQL ที่ตำราไม่ได้อธิบาย แม้บางคำจะโผล่ในเนื้อหา (เช่น Transaction ในตาราง)
         for query in ['ราคาทองวันนี้', 'weather today', 'เขียนเพลงรัก', 'quantum computer คืออะไร',

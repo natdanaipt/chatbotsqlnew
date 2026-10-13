@@ -1130,6 +1130,14 @@ def _plan(query):
     direct = _direct_plan(query)
     if direct is not None:
         return direct, True
+    # คำถามนิยาม ER Diagram ต้องได้คำอธิบายตรงจากย่อหน้าแรกของหัวข้อ 5.1
+    # ไม่รวมประวัติความเป็นมา รูปแบบสัญลักษณ์ และข้อความสรุปที่ยาวเกินคำถาม
+    if re.search(r"\ber\s*[- ]?diagram\b|แผนภาพอีอาร์(?:ไดอะแกรม)?|อีอาร์ไดอะแกรม", query, re.I) \
+            and asks_meaning(query) \
+            and not re.search(r"ประวัติ|ความเป็นมา|ที่มา|รูปแบบ|สัญลักษณ์|มีกี่แบบ|ประเภท", query):
+        er_entry = next((e for e in ENTRIES if e["topic"].startswith("5.1 ความหมายและความเป็นมา")), None)
+        if er_entry:
+            return [(er_entry, [0])], True
     data_types = _data_type_topics(query)
     if data_types:
         return [(e, None) for e in data_types], True
@@ -1779,7 +1787,8 @@ def _decide(query, plan, selector, memory):
     """คำถามที่ต้องตีความ (วิธีค้นเองไม่มั่นใจ):
     1) เคยตอบคำถามนี้แล้ว -> คำตอบเดิม (AI ตอบไม่เหมือนเดิมทุกครั้ง จึงต้องจำ ไม่ถาม AI ซ้ำ)
     2) ยังไม่เคย -> ให้ AI ช่วยเลือก แล้วจำคำตอบที่แสดงไว้ (รวมกรณีที่ AI ใช้ไม่ได้และตอบด้วยวิธีค้นเอง)
-    3) จำเพิ่มไม่ได้ (บน Vercel) -> ไม่เรียก AI สด ใช้วิธีค้นเองซึ่งได้ผลเดิมทุกครั้ง"""
+    3) ถ้าไม่มีคำตอบที่จำไว้ -> เรียก selector สดได้ แม้ memory จะเขียนไม่ได้ (เช่นบน Vercel)
+       ถ้า selector ใช้ไม่ได้หรือไม่ผ่านการตรวจ จะใช้แผนค้นเอง"""
     book = DOCUMENT_META.get("markdown_sha256")
     key = question_key(query)
     if memory is not None:
@@ -1787,8 +1796,6 @@ def _decide(query, plan, selector, memory):
         restored = plan_from_json(stored.get("plan")) if isinstance(stored, dict) else None
         if restored is not None:
             return restored
-        if not memory.writable:
-            return plan
     if not selector:
         return plan
     chosen = selector(query)

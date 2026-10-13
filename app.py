@@ -27,8 +27,8 @@ app = Flask(__name__)
 # บน Vercel ระบบไฟล์เป็น read-only ยกเว้น /tmp การเขียนที่อื่นจะทำให้แอปพังตั้งแต่ import
 ON_SERVERLESS = bool(os.getenv("VERCEL"))
 
-# คำตอบของคำถามที่ต้องตีความ (ถามซ้ำได้คำตอบเดิม) — ในเครื่องบันทึกเพิ่มได้ บน Vercel ใช้เฉพาะที่ commit ขึ้นไป
-# เพราะเครื่องแต่ละตัวบน Vercel ไม่มีที่เก็บร่วมกัน ถ้าให้ AI ตอบสดจะได้คำตอบต่างกันคนละเครื่อง
+# คำตอบที่ AI ช่วยเลือกเก็บไว้เมื่อตั้งค่าได้; บน Vercel ไฟล์อ่านอย่างเดียว
+# แต่ยังเรียก Gemini แบบสดได้ โดย AI มีสิทธิ์เลือกเฉพาะข้อความที่ตรวจสอบกับ dataset แล้วเท่านั้น
 ANSWERS_PATH = os.path.join(os.path.dirname(__file__), "ai_answers.json")
 answer_memory = AnswerMemory(ANSWERS_PATH, writable=False if ON_SERVERLESS else None, model=ai_select.model_label())
 DATA_DIR = os.getenv("DATA_DIR") or (
@@ -86,9 +86,14 @@ def clean_history(raw):
 
 
 def stream_reply(history):
-    """Extract stored content: ถ้าตั้ง GEMINI_API_KEY ไว้ AI ช่วยเลือกหัวข้อ/ย่อหน้า แต่ข้อความทั้งหมดมาจากตำรา"""
-    yield kb.answer_from_dataset(history, selector=ai_select.plan_answer if ai_select.enabled() else None,
-                                 memory=answer_memory)
+    """ตอบจาก dataset; Gemini เลือกข้อความสั้นตรงจากหลักฐานได้เมื่อมี API key"""
+    answer = kb.answer_from_dataset(history, selector=ai_select.plan_answer if ai_select.enabled() else None,
+                                    memory=answer_memory)
+    if ai_select.enabled():
+        query = next((str(m.get("content") or "") for m in reversed(history)
+                      if isinstance(m, dict) and m.get("role") == "user"), "")
+        answer = ai_select.compact_answer(query, answer) or answer
+    yield answer
 
 
 def page_version():
